@@ -174,11 +174,86 @@ function RankUpOverlay({ rank, onDone }) {
   );
 }
 
+// ── EDIT MODAL ─────────────────────────────────────────────────────────────
+function EditModal({ visible, item, onSave, onClose, color }) {
+  const [text, setText] = useState('');
+  const [diff, setDiff] = useState('medium');
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && item) {
+      setText(item.text);
+      setDiff(item.diff);
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: 300, duration: 200, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000cc', justifyContent: 'flex-end', zIndex: 999, opacity: opacityAnim }]}>
+      <TouchableOpacity style={{ flex: 1 }} onPress={onClose} />
+      <Animated.View style={{
+        backgroundColor: '#0a0a0a', borderTopWidth: 2, borderTopColor: color,
+        padding: 20, transform: [{ translateY: slideAnim }],
+      }}>
+        <Text style={[s.mono, { fontSize: 10, color, letterSpacing: 4, marginBottom: 16 }]}>✏ MODIFIER</Text>
+
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Nom..."
+          placeholderTextColor="#4b5563"
+          style={[s.input, { marginBottom: 12, fontSize: 14 }]}
+          autoFocus
+        />
+
+        <Text style={[s.mono, { fontSize: 8, color: '#4b5563', letterSpacing: 3, marginBottom: 8 }]}>NIVEAU DE MENACE</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+          {['easy','medium','hard'].map(d => (
+            <TouchableOpacity key={d} onPress={() => setDiff(d)} style={{
+              flex: 1, paddingVertical: 8, alignItems: 'center',
+              backgroundColor: diff === d ? THREAT[d].color : '#1f2937',
+              borderRadius: 2,
+            }}>
+              <Text style={[s.mono, { fontSize: 9, color: diff === d ? '#000' : '#6b7280' }]}>
+                {d === 'easy' ? 'LOW' : d === 'medium' ? 'MED' : 'HIGH'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={onClose} style={[s.btn, { flex: 1, borderColor: '#374151' }]}>
+            <Text style={[s.mono, { fontSize: 9, color: '#6b7280', letterSpacing: 2 }]}>ANNULER</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { if (text.trim()) { onSave(text.trim(), diff); onClose(); }}}
+            style={[s.btn, { flex: 2, borderColor: color, backgroundColor: color + '22' }]}
+          >
+            <Text style={[s.mono, { fontSize: 9, color, letterSpacing: 2 }]}>▣ SAUVEGARDER</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
 // ── OBJECTIVE CARD ─────────────────────────────────────────────────────────
-function ObjectiveCard({ obj, onComplete, focusId, onFocus, color }) {
+function ObjectiveCard({ obj, onComplete, focusId, onFocus, color, onDelete, onEdit }) {
   const threat = THREAT[obj.diff];
   const isFocus = focusId === obj.id;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [editing, setEditing] = useState(false);
 
   const handlePress = () => {
     Animated.sequence([
@@ -187,46 +262,71 @@ function ObjectiveCard({ obj, onComplete, focusId, onFocus, color }) {
     ]).start(() => onFocus(obj.id));
   };
 
+  const handleDelete = () => {
+    Alert.alert('Supprimer ?', `"${obj.text}"`, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: () => onDelete(obj.id) },
+    ]);
+  };
+
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={0.85}
-        style={[s.card, {
-          width: SW * 0.42,
-          borderColor: obj.done ? '#166534' : isFocus ? color : threat.color + '44',
-          borderTopWidth: 2,
-          borderTopColor: obj.done ? '#166534' : threat.color,
-          backgroundColor: obj.done ? '#052e1699' : isFocus ? '#0a1a0a' : '#0a0a0aee',
-          marginBottom: 0,
-        }]}
-      >
-        <Text style={[s.mono, { fontSize: 7, color: obj.done ? '#166534' : threat.color, letterSpacing: 2, marginBottom: 4 }]}>
-          ◈ {threat.tag}
-        </Text>
-        <Text style={[s.body, {
-          fontSize: 12, color: obj.done ? '#4ade8066' : '#d1d5db',
-          textDecorationLine: obj.done ? 'line-through' : 'none',
-          marginBottom: 6, lineHeight: 16,
-        }]}>{obj.text}</Text>
-        <Text style={[s.body, { fontSize: 9, color: '#facc15', marginBottom: obj.done ? 0 : 8 }]}>+{threat.xp} XP</Text>
-        {!obj.done && (
-          <TouchableOpacity
-            onPress={() => onComplete(obj)}
-            style={[s.btn, { borderColor: '#4ade8066', backgroundColor: '#052e1688' }]}
-          >
-            <Text style={[s.body, { fontSize: 9, color: '#4ade80', letterSpacing: 2 }]}>▣ FAIT</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
+    <>
+      <EditModal
+        visible={editing} item={obj} color={color}
+        onClose={() => setEditing(false)}
+        onSave={(text, diff) => onEdit(obj.id, text, diff)}
+      />
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.85}
+          style={[s.card, {
+            width: SW * 0.42,
+            borderColor: obj.done ? '#166534' : isFocus ? color : threat.color + '44',
+            borderTopWidth: 2,
+            borderTopColor: obj.done ? '#166534' : threat.color,
+            backgroundColor: obj.done ? '#052e1699' : isFocus ? '#0a1a0a' : '#0a0a0aee',
+            marginBottom: 0,
+          }]}
+        >
+          <Text style={[s.mono, { fontSize: 7, color: obj.done ? '#166534' : threat.color, letterSpacing: 2, marginBottom: 4 }]}>
+            ◈ {threat.tag}
+          </Text>
+          <Text style={[s.body, {
+            fontSize: 12, color: obj.done ? '#4ade8066' : '#d1d5db',
+            textDecorationLine: obj.done ? 'line-through' : 'none',
+            marginBottom: 6, lineHeight: 16,
+          }]}>{obj.text}</Text>
+          <Text style={[s.body, { fontSize: 9, color: '#facc15', marginBottom: 8 }]}>+{threat.xp} XP</Text>
+          {!obj.done && (
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              <TouchableOpacity onPress={() => onComplete(obj)} style={[s.btn, { borderColor: '#4ade8066', backgroundColor: '#052e1688', flex: 1 }]}>
+                <Text style={[s.body, { fontSize: 8, color: '#4ade80', letterSpacing: 1 }]}>▣ FAIT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditing(true)} style={[s.btn, { borderColor: '#38bdf844', paddingHorizontal: 8 }]}>
+                <Text style={[s.body, { fontSize: 10, color: '#38bdf8' }]}>✏</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={[s.btn, { borderColor: '#ef444444', paddingHorizontal: 8 }]}>
+                <Text style={[s.body, { fontSize: 10, color: '#ef4444' }]}>🗑</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {obj.done && (
+            <TouchableOpacity onPress={handleDelete} style={[s.btn, { borderColor: '#ef444433' }]}>
+              <Text style={[s.mono, { fontSize: 8, color: '#ef444488', letterSpacing: 1 }]}>🗑 SUPPRIMER</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    </>
   );
 }
 
 // ── MISSION CARD ───────────────────────────────────────────────────────────
-function MissionCard({ mission, onComplete, onAddObj, focusId, onFocus, color }) {
+function MissionCard({ mission, onComplete, onAddObj, focusId, onFocus, color, onDelete, onEdit, onDeleteObj, onEditObj }) {
   const [expanded, setExpanded] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [newText, setNewText] = useState('');
   const [newDiff, setNewDiff] = useState('medium');
   const threat = THREAT[mission.diff];
@@ -248,117 +348,143 @@ function MissionCard({ mission, onComplete, onAddObj, focusId, onFocus, color })
     setNewText(''); setAdding(false);
   };
 
+  const handleDelete = () => {
+    Alert.alert('Supprimer la mission ?', `"${mission.text}" et tous ses objectifs seront supprimés.`, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: () => onDelete(mission.id) },
+    ]);
+  };
+
   return (
-    <View style={{ marginBottom: 16 }}>
-      <TouchableOpacity
-        onPress={() => onFocus(mission.id)}
-        activeOpacity={0.85}
-        style={[s.card, {
-          borderColor: mission.done ? '#166534' : isFocus ? color : '#1f2937',
-          borderTopWidth: 3,
-          borderTopColor: mission.done ? '#166534' : threat.color,
-          backgroundColor: mission.done ? '#052e1699' : isFocus ? '#0a1a0a' : '#0a0a0aee',
-        }]}
-      >
-        {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <Text style={[s.mono, { fontSize: 8, color: '#4b5563', letterSpacing: 2 }]}>{mission.code}</Text>
-          <View style={[s.badge, { backgroundColor: (mission.done ? '#166534' : threat.color) + '22', borderColor: (mission.done ? '#166534' : threat.color) + '66' }]}>
-            <Text style={[s.mono, { fontSize: 7, color: mission.done ? '#4ade80' : threat.color }]}>
-              {mission.done ? 'COMPLETE' : threat.tag}
-            </Text>
-          </View>
-        </View>
-
-        {/* Name */}
-        <Text style={[s.body, {
-          fontSize: 14, fontWeight: '700', color: mission.done ? '#4ade8077' : '#e5e7eb',
-          textDecorationLine: mission.done ? 'line-through' : 'none',
-          marginBottom: 10, lineHeight: 18,
-        }]}>{mission.text}</Text>
-
-        {/* Progress bar */}
-        {objTotal > 0 && (
-          <View style={{ marginBottom: 10 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text style={[s.mono, { fontSize: 7, color: '#4b5563', letterSpacing: 1 }]}>OBJECTIFS</Text>
-              <Text style={[s.mono, { fontSize: 7, color: objDone === objTotal ? '#4ade80' : '#9ca3af' }]}>{objDone}/{objTotal}</Text>
-            </View>
-            <View style={{ height: 3, backgroundColor: '#1f2937', borderRadius: 1 }}>
-              <Animated.View style={{ height: 3, width: barWidth, backgroundColor: '#4ade80', borderRadius: 1,
-                shadowColor: '#4ade80', shadowOpacity: 0.6, shadowRadius: 4 }} />
+    <>
+      <EditModal
+        visible={editing} item={mission} color={color}
+        onClose={() => setEditing(false)}
+        onSave={(text, diff) => onEdit(mission.id, text, diff)}
+      />
+      <View style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={() => onFocus(mission.id)}
+          activeOpacity={0.85}
+          style={[s.card, {
+            borderColor: mission.done ? '#166534' : isFocus ? color : '#1f2937',
+            borderTopWidth: 3,
+            borderTopColor: mission.done ? '#166534' : threat.color,
+            backgroundColor: mission.done ? '#052e1699' : isFocus ? '#0a1a0a' : '#0a0a0aee',
+          }]}
+        >
+          {/* Header */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <Text style={[s.mono, { fontSize: 8, color: '#4b5563', letterSpacing: 2 }]}>{mission.code}</Text>
+            <View style={[s.badge, { backgroundColor: (mission.done ? '#166534' : threat.color) + '22', borderColor: (mission.done ? '#166534' : threat.color) + '66' }]}>
+              <Text style={[s.mono, { fontSize: 7, color: mission.done ? '#4ade80' : threat.color }]}>
+                {mission.done ? 'COMPLETE' : threat.tag}
+              </Text>
             </View>
           </View>
-        )}
 
-        <Text style={[s.body, { fontSize: 10, color: '#facc15', marginBottom: 10 }]}>+{threat.xp} XP</Text>
+          {/* Name */}
+          <Text style={[s.body, {
+            fontSize: 14, fontWeight: '700', color: mission.done ? '#4ade8077' : '#e5e7eb',
+            textDecorationLine: mission.done ? 'line-through' : 'none',
+            marginBottom: 10, lineHeight: 18,
+          }]}>{mission.text}</Text>
 
-        {/* Actions */}
-        {!mission.done && (
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <TouchableOpacity onPress={() => onComplete(mission)} style={[s.btn, { borderColor: '#4ade8066', backgroundColor: '#052e1688', flex: 1 }]}>
-              <Text style={[s.mono, { fontSize: 8, color: '#4ade80', letterSpacing: 2 }]}>▣ EXÉCUTER</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setAdding(a => !a)} style={[s.btn, { borderColor: '#38bdf866', backgroundColor: '#0c1a2188' }]}>
-              <Text style={[s.mono, { fontSize: 8, color: '#38bdf8', letterSpacing: 2 }]}>+ OBJ</Text>
-            </TouchableOpacity>
-            {objTotal > 0 && (
-              <TouchableOpacity onPress={() => setExpanded(e => !e)} style={[s.btn, { borderColor: '#37415166' }]}>
-                <Text style={[s.mono, { fontSize: 8, color: '#6b7280' }]}>{expanded ? '▲' : '▼'}</Text>
+          {/* Progress bar */}
+          {objTotal > 0 && (
+            <View style={{ marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={[s.mono, { fontSize: 7, color: '#4b5563', letterSpacing: 1 }]}>OBJECTIFS</Text>
+                <Text style={[s.mono, { fontSize: 7, color: objDone === objTotal ? '#4ade80' : '#9ca3af' }]}>{objDone}/{objTotal}</Text>
+              </View>
+              <View style={{ height: 3, backgroundColor: '#1f2937', borderRadius: 1 }}>
+                <Animated.View style={{ height: 3, width: barWidth, backgroundColor: '#4ade80', borderRadius: 1,
+                  shadowColor: '#4ade80', shadowOpacity: 0.6, shadowRadius: 4 }} />
+              </View>
+            </View>
+          )}
+
+          <Text style={[s.body, { fontSize: 10, color: '#facc15', marginBottom: 10 }]}>+{threat.xp} XP</Text>
+
+          {/* Actions */}
+          {!mission.done ? (
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              <TouchableOpacity onPress={() => onComplete(mission)} style={[s.btn, { borderColor: '#4ade8066', backgroundColor: '#052e1688', flex: 1 }]}>
+                <Text style={[s.mono, { fontSize: 8, color: '#4ade80', letterSpacing: 1 }]}>▣ EXÉCUTER</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Add objective form */}
-        {adding && (
-          <View style={{ marginTop: 12 }}>
-            <TextInput
-              value={newText}
-              onChangeText={setNewText}
-              onSubmitEditing={handleAddObj}
-              placeholder="Nouvel objectif..."
-              placeholderTextColor="#4b5563"
-              style={[s.input, { marginBottom: 8 }]}
-              autoFocus
-            />
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
-              {['easy','medium','hard'].map(d => (
-                <TouchableOpacity key={d} onPress={() => setNewDiff(d)} style={{
-                  flex: 1, paddingVertical: 5, alignItems: 'center',
-                  backgroundColor: newDiff === d ? THREAT[d].color : '#1f2937',
-                  borderRadius: 2,
-                }}>
-                  <Text style={[s.mono, { fontSize: 8, color: newDiff === d ? '#000' : '#6b7280' }]}>{d.toUpperCase()}</Text>
+              <TouchableOpacity onPress={() => setAdding(a => !a)} style={[s.btn, { borderColor: '#38bdf866' }]}>
+                <Text style={[s.mono, { fontSize: 8, color: '#38bdf8' }]}>+ OBJ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditing(true)} style={[s.btn, { borderColor: '#38bdf844', paddingHorizontal: 10 }]}>
+                <Text style={{ fontSize: 12, color: '#38bdf8' }}>✏</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={[s.btn, { borderColor: '#ef444444', paddingHorizontal: 10 }]}>
+                <Text style={{ fontSize: 12, color: '#ef4444' }}>🗑</Text>
+              </TouchableOpacity>
+              {objTotal > 0 && (
+                <TouchableOpacity onPress={() => setExpanded(e => !e)} style={[s.btn, { borderColor: '#37415166' }]}>
+                  <Text style={[s.mono, { fontSize: 8, color: '#6b7280' }]}>{expanded ? '▲' : '▼'}</Text>
                 </TouchableOpacity>
-              ))}
+              )}
             </View>
-            <TouchableOpacity onPress={handleAddObj} style={[s.btn, { borderColor: color + '88', backgroundColor: color + '11' }]}>
-              <Text style={[s.mono, { fontSize: 9, color, letterSpacing: 2 }]}>▣ CONFIRMER</Text>
+          ) : (
+            <TouchableOpacity onPress={handleDelete} style={[s.btn, { borderColor: '#ef444433' }]}>
+              <Text style={[s.mono, { fontSize: 8, color: '#ef444488', letterSpacing: 1 }]}>🗑 SUPPRIMER</Text>
             </TouchableOpacity>
+          )}
+
+          {/* Add objective form */}
+          {adding && (
+            <View style={{ marginTop: 12 }}>
+              <TextInput
+                value={newText}
+                onChangeText={setNewText}
+                onSubmitEditing={handleAddObj}
+                placeholder="Nouvel objectif..."
+                placeholderTextColor="#4b5563"
+                style={[s.input, { marginBottom: 8 }]}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                {['easy','medium','hard'].map(d => (
+                  <TouchableOpacity key={d} onPress={() => setNewDiff(d)} style={{
+                    flex: 1, paddingVertical: 5, alignItems: 'center',
+                    backgroundColor: newDiff === d ? THREAT[d].color : '#1f2937',
+                    borderRadius: 2,
+                  }}>
+                    <Text style={[s.mono, { fontSize: 8, color: newDiff === d ? '#000' : '#6b7280' }]}>{d.toUpperCase()}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity onPress={handleAddObj} style={[s.btn, { borderColor: color + '88', backgroundColor: color + '11' }]}>
+                <Text style={[s.mono, { fontSize: 9, color, letterSpacing: 2 }]}>▣ CONFIRMER</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Objectives */}
+        {expanded && mission.objectives?.length > 0 && (
+          <View style={{ paddingLeft: 16, marginTop: 8 }}>
+            <View style={{ width: 1, height: 8, backgroundColor: '#374151', alignSelf: 'flex-start', marginLeft: 12, marginBottom: 4 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginLeft: -4 }}>
+              <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+                {mission.objectives.map(obj => (
+                  <ObjectiveCard
+                    key={obj.id} obj={obj}
+                    onComplete={onComplete}
+                    focusId={focusId} onFocus={onFocus}
+                    color={color}
+                    onDelete={(objId) => onDeleteObj(mission.id, objId)}
+                    onEdit={(objId, text, diff) => onEditObj(mission.id, objId, text, diff)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
           </View>
         )}
-      </TouchableOpacity>
-
-      {/* Objectives */}
-      {expanded && mission.objectives?.length > 0 && (
-        <View style={{ paddingLeft: 16, marginTop: 8 }}>
-          <View style={{ width: 1, height: 8, backgroundColor: '#374151', alignSelf: 'flex-start', marginLeft: 12, marginBottom: 4 }} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginLeft: -4 }}>
-            <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
-              {mission.objectives.map(obj => (
-                <ObjectiveCard
-                  key={obj.id} obj={obj}
-                  onComplete={onComplete}
-                  focusId={focusId} onFocus={onFocus}
-                  color={color}
-                />
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      )}
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -527,6 +653,32 @@ export default function App() {
     });
   }, []);
 
+  const handleDeleteMission = useCallback((missionId) => {
+    setMissions(prev => prev.filter(m => m.id !== missionId));
+    setFocusId(prev => prev === missionId ? null : prev);
+  }, []);
+
+  const handleEditMission = useCallback((missionId, text, diff) => {
+    setMissions(prev => prev.map(m => m.id === missionId ? { ...m, text, diff } : m));
+  }, []);
+
+  const handleDeleteObj = useCallback((missionId, objId) => {
+    setMissions(prev => prev.map(m =>
+      m.id === missionId
+        ? { ...m, objectives: m.objectives.filter(o => o.id !== objId) }
+        : m
+    ));
+    setFocusId(prev => prev === objId ? null : prev);
+  }, []);
+
+  const handleEditObj = useCallback((missionId, objId, text, diff) => {
+    setMissions(prev => prev.map(m =>
+      m.id === missionId
+        ? { ...m, objectives: m.objectives.map(o => o.id === objId ? { ...o, text, diff } : o) }
+        : m
+    ));
+  }, []);
+
   const handleAddObj = useCallback((parentId, text, diff) => {
     setMissions(prev => prev.map(m =>
       m.id === parentId
@@ -632,6 +784,10 @@ export default function App() {
               key={m.id} mission={m}
               onComplete={handleComplete}
               onAddObj={handleAddObj}
+              onDelete={handleDeleteMission}
+              onEdit={handleEditMission}
+              onDeleteObj={handleDeleteObj}
+              onEditObj={handleEditObj}
               focusId={focusId}
               onFocus={id => setFocusId(prev => prev === id ? null : id)}
               color={loadout.color}
