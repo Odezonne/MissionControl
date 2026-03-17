@@ -35,22 +35,6 @@ const THREAT = {
 };
 
 const DEFAULT_MISSIONS = [
-  { id: 'm1', code: 'OP-ALPHA', text: 'Préparer la présentation', diff: 'hard', done: false,
-    objectives: [
-      { id: 'm1-o1', text: 'Faire le plan', diff: 'easy', done: false },
-      { id: 'm1-o2', text: 'Chercher les données', diff: 'medium', done: false },
-      { id: 'm1-o3', text: 'Créer les slides', diff: 'medium', done: false },
-    ]},
-  { id: 'm2', code: 'OP-BRAVO', text: "Faire l'épicerie", diff: 'easy', done: false,
-    objectives: [
-      { id: 'm2-o1', text: 'Faire la liste', diff: 'easy', done: false },
-      { id: 'm2-o2', text: 'Aller au magasin', diff: 'easy', done: false },
-    ]},
-  { id: 'm3', code: 'OP-DELTA', text: 'Séance de sport', diff: 'medium', done: false,
-    objectives: [
-      { id: 'm3-o1', text: '15 min cardio', diff: 'easy', done: false },
-      { id: 'm3-o2', text: 'Étirements', diff: 'easy', done: false },
-    ]},
 ];
 
 const SAVE_KEY = 'missioncontrol_v1';
